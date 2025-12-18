@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" style=""><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GreenStream Energy Serverless ETL Pipeline Design</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&amp;family=Arial:wght@400;700&amp;display=swap" rel="stylesheet">
+    <style>
+      /* Base Document Setup */
+      body {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 40px 80px;
+        background-color: #ffffff;
+        color: #333333;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        line-height: 1.5;
+      }
+
+      /* Typography Override */
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        color: #004488; /* Dark Blue */
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+      }
+
+      h1 {
+        font-size: 28pt;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      h2 {
+        font-size: 18pt;
+        font-weight: 600;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 5px;
+      }
+      h3 {
+        font-size: 14pt;
+        font-weight: 600;
+        color: #0066cc;
+      }
+      p,
+      li,
+      td,
+      th {
+        font-size: 11pt;
+      }
+
+      /* Cover Page */
+      .cover-page {
+        text-align: center;
+        padding-top: 100px;
+        padding-bottom: 100px;
+        border-bottom: 4px solid #00aa55;
+        margin-bottom: 40px;
+      }
+      .cover-title {
+        font-size: 32pt;
+        color: #003366;
+        margin-bottom: 20px;
+      }
+      .cover-subtitle {
+        font-size: 18pt;
+        color: #00aa55;
+        margin-bottom: 50px;
+        font-weight: normal;
+      }
+      .cover-meta {
+        margin-top: 100px;
+        color: #666;
+        font-size: 12pt;
+      }
+
+      /* Page Break */
+      .page-break {
+        page-break-before: always;
+        margin-top: 40px;
+        border-top: 1px solid #eee;
+        padding-top: 40px;
+      }
+
+      /* Tables */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        font-size: 10pt;
+      }
+      th {
+        background-color: #f0f4f8;
+        color: #003366;
+        text-align: left;
+        padding: 8px;
+        border: 1px solid #ddd;
+      }
+      td {
+        padding: 8px;
+        border: 1px solid #ddd;
+        vertical-align: top;
+      }
+
+      /* Task A: Flowchart Styles */
+      .flowchart-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border: 1px solid #eee;
+      }
+      .box {
+        background: white;
+        border: 2px solid #333;
+        padding: 10px 15px;
+        text-align: center;
+        min-width: 250px;
+        border-radius: 4px;
+        position: relative;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+      .box-title {
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+        color: #003366;
+      }
+      .box-content {
+        font-size: 9pt;
+        color: #555;
+      }
+      .arrow-down {
+        color: #333;
+        font-size: 16pt;
+        line-height: 1;
+      }
+      .split-path {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        gap: 20px;
+      }
+      .path-column {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+      }
+      .label-tag {
+        background: #eee;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 8pt;
+        margin: 5px 0;
+        border: 1px solid #ccc;
+      }
+      .success-path .box {
+        border-color: #00aa55;
+      }
+      .failure-path .box {
+        border-color: #cc3300;
+      }
+      .success-arrow {
+        color: #00aa55;
+        font-weight: bold;
+      }
+      .failure-arrow {
+        color: #cc3300;
+        font-weight: bold;
+      }
+
+      /* Task B: Rules Styling */
+      .category-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 30px;
+        color: #0066cc;
+        border-bottom: 2px solid #0066cc;
+        padding-bottom: 5px;
+      }
+      .rule-table th {
+        background-color: #e6f2ff;
+      }
+
+      /* Task C: Timeline Styling */
+      .phase-box {
+        border-left: 5px solid #ccc;
+        padding: 15px;
+        margin-bottom: 20px;
+        background-color: #fcfcfc;
+        border: 1px solid #eee;
+        border-left-width: 6px;
+      }
+      .phase-blue {
+        border-left-color: #0066cc;
+        background-color: #f0f7ff;
+      }
+      .phase-green {
+        border-left-color: #00aa55;
+        background-color: #f0fff4;
+      }
+      .phase-purple {
+        border-left-color: #663399;
+        background-color: #f8f4ff;
+      }
+      .phase-yellow {
+        border-left-color: #ffcc00;
+        background-color: #fffef0;
+      }
+      .phase-red {
+        border-left-color: #cc3300;
+        background-color: #fff0f0;
+      }
+
+      .phase-header {
+        font-weight: bold;
+        font-size: 12pt;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .step-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .step-list li {
+        margin-bottom: 8px;
+        font-size: 10pt;
+        padding-left: 15px;
+        position: relative;
+      }
+      .step-list li::before {
+        content: '•';
+        position: absolute;
+        left: 0;
+        color: #666;
+      }
+
+      /* Summary Boxes */
+      .principle-box {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+      }
+      .principle-title {
+        font-weight: bold;
+        color: #004488;
+        margin-bottom: 5px;
+      }
+
+      /* Utility */
+      .code-block {
+        font-family: Consolas, 'Courier New', monospace;
+        background: #f4f4f4;
+        padding: 10px;
+        border-left: 3px solid #0066cc;
+        font-size: 9pt;
+        margin: 10px 0;
+        white-space: pre-wrap;
+      }
+      .tag-success {
+        color: #00aa55;
+        font-weight: bold;
+      }
+      .tag-fail {
+        color: #cc3300;
+        font-weight: bold;
+      }
+
+      footer {
+        margin-top: 50px;
+        text-align: center;
+        font-size: 9pt;
+        color: #999;
+        border-top: 1px solid #eee;
+        padding-top: 20px;
+      }
+    </style>
+  </head>
+  <body style="">
+    <!-- 1. COVER PAGE -->
+    <div class="cover-page">
+      <div style="font-size: 60px; margin-bottom: 20px">⚡</div>
+      <div class="cover-title">Design Thinking for Data Scientist</div>
+      <div class="cover-subtitle">GreenStream Energy Serverless ETL Pipeline Design</div>
+      <div class="cover-meta">
+        <p><strong>Date:</strong> March 2024</p>
+        <p><strong>Prepared for:</strong> GreenStream Energy Strategic Initiative</p>
+        <p><strong>Document Type:</strong> System Architecture &amp; Data Design</p>
+      </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- 2. TABLE OF CONTENTS -->
+    <h2>Table of Contents</h2>
+    <table style="border: none">
+      <tbody><tr style="background: none">
+        <td style="border: none; padding: 10px 0"><strong>1. Task A: ETL Architecture Diagram</strong></td>
+        <td style="border: none; text-align: right">3</td>
+      </tr>
+      <tr style="background: none">
+        <td style="border: none; padding: 10px 0"><strong>2. Task B: Transformation Logic &amp; Business Rules</strong></td>
+        <td style="border: none; text-align: right">4</td>
+      </tr>
+      <tr style="background: none">
+        <td style="border: none; padding: 10px 0"><strong>3. Task C: Single Record Lifecycle</strong></td>
+        <td style="border: none; text-align: right">6</td>
+      </tr>
+      <tr style="background: none">
+        <td style="border: none; padding: 10px 0"><strong>4. Key Design Principles</strong></td>
+        <td style="border: none; text-align: right">8</td>
+      </tr>
+    </tbody></table>
+
+    <div class="page-break"></div>
+
+    <!-- 3. TASK A: ARCHITECTURE -->
+    <h2>Task A: ETL Architecture Diagram</h2>
+    <p>
+      The following diagram illustrates the serverless event-driven architecture designed to process smart meter data
+      from ingestion to analytics.
+    </p>
+
+    <div class="flowchart-container">
+      <!-- Source -->
+      <div class="box">
+        <span class="box-title">DATA SOURCE LAYER</span>
+        <span class="box-content">50,000 Smart Meters (CSV Output)</span>
+      </div>
+      <div class="arrow-down">↓</div>
+
+      <!-- Raw Storage -->
+      <div class="box">
+        <span class="box-title">RAW DATA STORAGE</span>
+        <span class="box-content">Landing Zone (S3)<br>/raw-data/YYYY-MM-DD/<br>Format: CSV (as-is)</span>
+      </div>
+      <div class="arrow-down">↓ <span style="font-size: 10pt; color: #666">[Event Trigger: New File]</span></div>
+
+      <!-- Orchestration -->
+      <div class="box">
+        <span class="box-title">ORCHESTRATION ENGINE</span>
+        <span class="box-content">File Validation • Routing Logic</span>
+      </div>
+
+      <!-- Split Path -->
+      <div class="split-path">
+        <!-- Valid/Success Path -->
+        <div class="path-column success-path">
+          <div class="arrow-down success-arrow">↓</div>
+          <div class="label-tag">Valid File</div>
+          <div class="arrow-down success-arrow">↓</div>
+
+          <div class="box">
+            <span class="box-title">TRANSFORMATION LAYER</span>
+            <div class="box-content" style="text-align: left; padding-left: 10px">
+              1. Extract &amp; Parse<br>
+              2. Clean &amp; Standardize<br>
+              3. Validate &amp; Enrich<br>
+              <span style="font-size: 8pt; color: #888">[Retry: 3x exp. backoff]</span>
+            </div>
+          </div>
+
+          <div class="arrow-down success-arrow">↓</div>
+          <div class="label-tag" style="background-color: #e6fffa; color: #006644">Success</div>
+          <div class="arrow-down success-arrow">↓</div>
+
+          <div class="box">
+            <span class="box-title">STRUCTURED STORAGE (RDS)</span>
+            <div class="box-content" style="text-align: left">
+              • meter_readings<br>
+              • meter_metadata<br>
+              • data_quality_log<br>
+              <i>Retention: 90 days</i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Invalid/Failure Path -->
+        <div class="path-column failure-path">
+          <div class="arrow-down failure-arrow">↓</div>
+          <div class="label-tag">Invalid File</div>
+          <div class="arrow-down failure-arrow">↓</div>
+
+          <div class="box">
+            <span class="box-title">ERROR QUEUE</span>
+            <span class="box-content">Alerting &amp; Monitoring</span>
+          </div>
+
+          <div style="height: 120px; border-left: 2px dashed #ccc; margin: 10px 0"></div>
+          <!-- Spacer -->
+
+          <div class="box">
+            <span class="box-title">DEAD LETTER QUEUE</span>
+            <span class="box-content">Failed Record Storage<br>Manual Review Required</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓ <span style="font-size: 10pt; color: #666">[Daily Job @ 2 AM]</span></div>
+
+      <!-- Data Lake -->
+      <div class="box" style="border-color: #004488; background-color: #f0f7ff">
+        <span class="box-title">ANALYTICS DATA LAKE</span>
+        <span class="box-content">Format: Parquet (Snappy Compressed)<br>Partition: /year=YYYY/month=MM/<br>Retention: Unlimited</span>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <!-- Consumption -->
+      <div class="box">
+        <span class="box-title">CONSUMPTION LAYER</span>
+        <span class="box-content">BI Dashboards • ML Models • External APIs</span>
+      </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- 4. TASK B: BUSINESS RULES -->
+    <h2>Task B: Transformation Logic &amp; Business Rules</h2>
+
+    <div class="category-header">
+      <h3>⚙️ Category 1: Unit Standardization</h3>
+    </div>
+    <table class="rule-table">
+      <thead>
+        <tr>
+          <th width="15%">Rule ID</th>
+          <th width="40%">Logic</th>
+          <th width="30%">Rationale</th>
+          <th width="15%">Example</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>B1.1</strong></td>
+          <td>If <code>energy_unit</code> is "W", divide value by 1000 and set unit to "kW".</td>
+          <td>Ensures consistent units for aggregation across all meters.</td>
+          <td>2500 W → 2.5 kW</td>
+        </tr>
+        <tr>
+          <td><strong>B1.2</strong></td>
+          <td>
+            Check <code>energy_unit</code> against allow-list: [W, kW, Watt, Kilowatt]. Else flag
+            <code>UNKNOWN_UNIT</code>.
+          </td>
+          <td>Catches sensor misconfigurations early.</td>
+          <td>"Volts" → Error</td>
+        </tr>
+        <tr>
+          <td><strong>B1.3</strong></td>
+          <td>Round standardized kW values to 4 decimal places.</td>
+          <td>Prevents floating-point precision errors in downstream sums.</td>
+          <td>2.49999 → 2.5000</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="category-header">
+      <h3>📊 Category 2: Missing Value Handling</h3>
+    </div>
+    <table class="rule-table">
+      <thead>
+        <tr>
+          <th>Rule ID</th>
+          <th>Logic</th>
+          <th>Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>B2.1</strong></td>
+          <td>
+            If <code>energy_value</code> is NULL → flag as <code>MISSING_READING</code>, set
+            <code>is_valid_for_analytics = FALSE</code>.
+          </td>
+          <td>Maintains data lineage without skewing statistical calculations (averages/sums).</td>
+        </tr>
+        <tr>
+          <td><strong>B2.2</strong></td>
+          <td>
+            Infer timestamp based on sequence position (15-min intervals). Set <code>timestamp_imputed = TRUE</code>.
+          </td>
+          <td>Recovers record utility for partially corrupted time-series data.</td>
+        </tr>
+        <tr>
+          <td><strong>B2.3</strong></td>
+          <td>If &gt;4 consecutive NULLs (&gt;1 hour) → create alert, flag as <code>gap_period = TRUE</code>.</td>
+          <td>Distinguishes between random packet loss and sustained connectivity issues.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="category-header">
+      <h3>✅ Category 3: Data Validation &amp; Range Checks</h3>
+    </div>
+    <table class="rule-table">
+      <thead>
+        <tr>
+          <th>Rule ID</th>
+          <th>Logic &amp; Action</th>
+          <th>Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>B3.1</strong></td>
+          <td>
+            Check: <code>0 &lt; consumption_kw &lt; 50 kW</code>.<br>Action: Flag <code>OUT_OF_RANGE</code> if violated.
+          </td>
+          <td>Physical plausibility check. Negative values or household values &gt;50kW are errors.</td>
+        </tr>
+        <tr>
+          <td><strong>B3.2</strong></td>
+          <td>
+            If 0 kW for &gt;24 consecutive hours → flag <code>EXTENDED_ZERO_CONSUMPTION</code>.<br>Check: Cross-reference
+            vacancy list.
+          </td>
+          <td>Detects dead meters or tampering vs legitimate vacancies.</td>
+        </tr>
+        <tr>
+          <td><strong>B3.3</strong></td>
+          <td>
+            Reject if timestamp &gt; current_time + 5 min OR &lt; 2020-01-01.<br>Action: Flag
+            <code>INVALID_TIMESTAMP</code>.
+          </td>
+          <td>Prevents "future" data or default/reset clock dates (1970, etc.).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="page-break"></div>
+
+    <div class="category-header">
+      <h3>🔧 Category 4: Faulty Meter Detection</h3>
+    </div>
+    <table class="rule-table">
+      <tbody>
+        <tr>
+          <td width="20%"><strong>B4.1: Stuck Meter</strong></td>
+          <td>
+            <strong>Logic:</strong> Same value (excluding 0) for &gt;12 consecutive readings. Calculate variance over 24h
+            window.<br><strong>Threshold:</strong> Variance &lt; 0.01 kW² → escalate to <code>faulty_meters</code> table.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>B4.2: Erratic Spike</strong></td>
+          <td>
+            <strong>Logic:</strong> Calculate rolling 7-day mean + std_dev.<br><strong>Threshold:</strong> If reading
+            &gt; mean + (4 * std_dev) → flag <code>CONSUMPTION_SPIKE</code>.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>B4.3: Comm Failure</strong></td>
+          <td>
+            <strong>Logic:</strong> If <code>missing_reading_counter</code> &gt; 20% over 7 days → flag
+            <code>FREQUENT_DROPOUTS</code>.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="category-header">
+      <h3>📈 Category 5: Data Enrichment</h3>
+    </div>
+    <table class="rule-table">
+      <tbody>
+        <tr>
+          <td width="20%"><strong>B5.1: Peak Period</strong></td>
+          <td>
+            • <strong>Peak:</strong> 17:00-21:00 (Weekdays)<br>
+            • <strong>Off-Peak:</strong> 23:00-06:00<br>
+            • <strong>Standard:</strong> All other times
+          </td>
+        </tr>
+        <tr>
+          <td><strong>B5.2: Seasonal</strong></td>
+          <td>Tag based on month: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Fall (Sep-Nov).</td>
+        </tr>
+        <tr>
+          <td><strong>B5.3: Quality Score</strong></td>
+          <td>
+            Starting Score: 0<br>
+            +40 pts: No missing values<br>
+            +30 pts: No validation errors<br>
+            +20 pts: Within expected range<br>
+            +10 pts: Meter reliability &gt;95%<br>
+            <strong>Grade:</strong> A (90-100), B (75-89), C (60-74), F (&lt;60)
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="category-header">
+      <h3>📋 Category 6: Metadata Enhancement</h3>
+    </div>
+    <p>
+      <strong>Rule B6.1 (Lineage):</strong> Append <code>processed_timestamp</code>, <code>pipeline_version</code>, and
+      <code>source_file</code> to every record.
+    </p>
+    <p>
+      <strong>Rule B6.2 (Idempotency):</strong> Generate unique ID:
+      <code>record_id = SHA256(meter_id + timestamp + energy_value)</code> to prevent duplicates.
+    </p>
+
+    <div class="page-break"></div>
+
+    <!-- 5. TASK C: LIFECYCLE -->
+    <h2>Task C: Single Record Lifecycle</h2>
+
+    <div class="code-block">
+      Sample Record: meter_id: SM-48291 timestamp: 2024-03-15 18:45:00 energy_value: 3250 W location: Residential_Zone_7
+    </div>
+
+    <div class="phase-box phase-blue">
+      <div class="phase-header">
+        <span>🔵 PHASE 1: INGESTION</span>
+        <span>18:45:00 - 18:45:03</span>
+      </div>
+      <ul class="step-list">
+        <li>
+          <strong>Step 1.1: File Upload (18:45:00)</strong><br>Meter transmits data via Wi-Fi. Batched into CSV:
+          <code>readings_2024-03-15_1845_batch_142.csv</code>. Uploaded to <code>/raw-data/2024/03/15/</code>.
+        </li>
+        <li>
+          <strong>Step 1.2: Event Trigger (18:45:03)</strong><br>S3 Event <code>NEW_FILE_CREATED</code> fires.
+          Orchestrator receives event within &lt;1 sec.
+        </li>
+        <li>
+          <strong>Step 1.3: Initial Validation</strong><br>File size: 245 KB ✓ | Extension: .csv ✓ | Duplicate check:
+          ✓<br>Result: <strong>PASSED</strong> → route to transformation queue.
+        </li>
+      </ul>
+    </div>
+
+    <div class="phase-box phase-green">
+      <div class="phase-header">
+        <span>🟢 PHASE 2: TRANSFORMATION</span>
+        <span>18:45:04 - 18:45:05</span>
+      </div>
+      <ul class="step-list">
+        <li>
+          <strong>Step 2.1: Queue Pickup (18:45:04)</strong><br>Worker downloads CSV and parses row 1,847 (our
+          record).
+        </li>
+        <li>
+          <strong>Step 2.3: Business Rules Application</strong> <br>✅ Rule B1.1: 3250 W → <strong>3.25 kW</strong>
+          <br>✅ Rule B3.1: 0 &lt; 3.25 &lt; 50 kW (Valid) <br>✅ Rule B5.1: 18:45 → <strong>PEAK</strong> period <br>✅
+          Rule B5.2: March 15 → <strong>SPRING</strong> season <br>✅ Rule B6.2: Generated
+          <code>record_id = SHA256(...)</code>
+        </li>
+        <li>
+          <strong>Step 2.4: Quality Scoring</strong><br>Score: 100/100 → <strong>Grade: A</strong>. Record marked
+          <code>is_valid_for_analytics = TRUE</code>.
+        </li>
+      </ul>
+    </div>
+
+    <div class="phase-box phase-purple">
+      <div class="phase-header">
+        <span>🟣 PHASE 3: STRUCTURED STORAGE</span>
+        <span>18:45:05 - 18:45:06</span>
+      </div>
+      <ul class="step-list">
+        <li><strong>Step 3.1: Transaction Start</strong><br>Database connection established.</li>
+        <li><strong>Step 3.2: Insert</strong><br>SQL INSERT executed for <code>meter_readings</code> table.</li>
+        <li>
+          <strong>Step 3.3: Idempotency Check</strong><br><code>ON CONFLICT DO NOTHING</code> prevents duplicate entry
+          if file was re-sent.
+        </li>
+        <li>
+          <strong>Step 3.5: Commit</strong><br>COMMIT at 18:45:05.8. Message acknowledged and removed from queue.
+        </li>
+      </ul>
+    </div>
+
+    <div class="phase-box phase-yellow">
+      <div class="phase-header">
+        <span>🟡 PHASE 4: ARCHIVAL</span>
+        <span>Next Day 02:00 AM</span>
+      </div>
+      <ul class="step-list">
+        <li><strong>Step 4.1: Scheduled Aggregation</strong><br>Job queries all 4.8M readings from 2024-03-15.</li>
+        <li>
+          <strong>Step 4.2: Aggregation Logic</strong><br>SM-48291 Stats: Total 45.3 kWh, Peak 3.25 kW (our record).
+        </li>
+        <li>
+          <strong>Step 4.3: Parquet Conversion</strong><br>Converted to columnar format with Snappy compression (~70%
+          size reduction).
+        </li>
+        <li>
+          <strong>Step 4.4: Data Lake Upload</strong><br>Stored in
+          <code>/analytics/year=2024/month=03/region=Zone7/</code>. Tier: Cold Storage.
+        </li>
+      </ul>
+    </div>
+
+    <div class="phase-box phase-red">
+      <div class="phase-header">
+        <span>🔴 PHASE 5: CONSUMPTION &amp; ANALYSIS</span>
+        <span>Ongoing</span>
+      </div>
+      <ul class="step-list">
+        <li>
+          <strong>Immediate (18:45:10):</strong> Visible on Operations Dashboard. Alert check: 3.25 kW vs 1.9 kW avg
+          (1.71x). No alert triggered.
+        </li>
+        <li>
+          <strong>Historical (Days Later):</strong> Data Science team loads Parquet file for Peak Demand Forecasting
+          Model training.
+        </li>
+      </ul>
+    </div>
+
+    <h3>⚠️ Failure Scenarios</h3>
+    <table class="rule-table">
+      <tbody><tr>
+        <th>Scenario A: Transformation Fails</th>
+        <td>
+          Worker out of memory. <strong>Retry Logic:</strong> 3 attempts with exponential backoff (2s, 4s, 8s). If all
+          fail → Move to <strong>Dead Letter Queue (DLQ)</strong> for manual review.
+        </td>
+      </tr>
+      <tr>
+        <th>Scenario B: DB Write Fails</th>
+        <td>
+          Connection timeout. Transaction <strong>ROLLBACK</strong>. Message remains in queue. Another worker retries
+          after 30s.
+        </td>
+      </tr>
+      <tr>
+        <th>Scenario C: Duplicate File</th>
+        <td>
+          File hash matches processed list. Skipped. If re-processed, <strong>Idempotency Key</strong> (SHA256) hits DB
+          constraint <code>ON CONFLICT DO NOTHING</code>.
+        </td>
+      </tr>
+    </tbody></table>
+
+    <div class="page-break"></div>
+
+    <!-- 6. DESIGN PRINCIPLES -->
+    <h2>Key Design Principles</h2>
+
+    <div class="principle-box">
+      <div class="principle-title">🏗️ 1. Separation of Concerns</div>
+      <div>
+        Distinct layers for different data velocities and use cases: Raw Storage (Audit), Structured DB
+        (Operational/Real-time), and Data Lake (Analytical/Batch).
+      </div>
+    </div>
+
+    <div class="principle-box">
+      <div class="principle-title">🔄 2. Idempotency &amp; Reliability</div>
+      <div>
+        The system is designed to handle failures gracefully. Unique <code>record_id</code> generation ensures that
+        re-processing the same file does not result in duplicate data.
+      </div>
+    </div>
+
+    <div class="principle-box">
+      <div class="principle-title">✨ 3. Data Quality by Design</div>
+      <div>
+        Quality is not an afterthought. Records are scored (Grade A-F) during transformation. Invalid data is flagged
+        rather than silently dropped, preserving lineage.
+      </div>
+    </div>
+
+    <div class="principle-box">
+      <div class="principle-title">📈 4. Scalability Through Serverless</div>
+      <div>
+        Event-driven architecture (S3 Triggers + Lambda functions) allows the system to scale purely based on the number
+        of incoming files without managing server capacity.
+      </div>
+    </div>
+
+    <div class="principle-box">
+      <div class="principle-title">👁️ 5. Observability</div>
+      <div>
+        Comprehensive logging at every stage (Ingestion, Transform, Load) coupled with Dead Letter Queues ensures no
+        data is lost silently.
+      </div>
+    </div>
+
+    <footer>GreenStream Energy Internal Document | Confidential | Page <span id="page-number"></span></footer>
+  
+
+</body></html>
